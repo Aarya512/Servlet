@@ -1,64 +1,130 @@
+
+
 import jakarta.servlet.http.*;
 import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebServlet;
 import java.io.*; 
 import java.sql.*;
 
+@WebServlet("/DemoServlet") // ✅ This is required to map the servlet
 public class DemoServlet extends HttpServlet {
-    public void doGet(HttpServletRequest req, HttpServletResponse res)
-        throws ServletException, IOException {
 
-        // Set content type for response
+    protected void doGet(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+
         res.setContentType("text/html");
-        PrintWriter pw = res.getWriter();  // Get the stream to write the data
+        PrintWriter pw = res.getWriter();
 
-        // Write the response in HTML format
-        pw.println("<html><body>");
+        pw.println("<html><head><title>eBookShop</title></head><body>");
         pw.println("<h2>Welcome to Sanjivani eBookShop</h2>");
+
+        // Form for inserting, updating, deleting
+        pw.println("<h3>Insert / Update / Delete Book</h3>");
+        pw.println("<form method='post' action='DemoServlet'>");
+        pw.println("Book ID: <input type='text' name='id' required><br>");
+        pw.println("Title: <input type='text' name='title'><br>");
+        pw.println("Quantity: <input type='number' name='qty'><br>");
+        pw.println("Price: <input type='number' step='0.01' name='price'><br>");
+        pw.println("Author: <input type='text' name='author'><br><br>");
+        pw.println("<input type='submit' name='action' value='Insert'>");
+        pw.println("<input type='submit' name='action' value='Update'>");
+        pw.println("<input type='submit' name='action' value='Delete'>");
+        pw.println("</form><br><hr>");
+
+        // Display all books
+        pw.println("<h3>Available Books</h3>");
         pw.println("<table border='1' cellpadding='5' cellspacing='0'>");
-        pw.println("<tr><th>Book ID</th><th>Book Title</th><th>Quantity</th><th>Book Price</th><th>Book Author</th></tr>");
+        pw.println("<tr><th>Book ID</th><th>Title</th><th>Quantity</th><th>Price</th><th>Author</th></tr>");
 
         try {
-            // Load the JDBC driver (Make sure the MySQL connector is included in your project)
             Class.forName("com.mysql.cj.jdbc.Driver");
-
-            // Connect to the MySQL database 'sanjivani'
             Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/sanjivani", "root", "");
-
-            // Create a statement to execute SQL queries
             Statement stmt = con.createStatement();
-
-            // Execute the SQL query to retrieve all books
             ResultSet rs = stmt.executeQuery("SELECT * FROM ebookshop");
 
-            // Loop through the ResultSet and display the data in a table
             while (rs.next()) {
-                // Retrieve data from the ResultSet
-                int id = rs.getInt("id");  // Book ID
-                String title = rs.getString("title");  // Book Title
-                int qty = rs.getInt("qty");  // Quantity
-                double price = rs.getDouble("price");  // Book Price
-                String author = rs.getString("author_name");  // Book Author
+                int id = rs.getInt("id");
+                String title = rs.getString("title");
+                int qty = rs.getInt("qty");
+                double price = rs.getDouble("price");
+                String author = rs.getString("author_name");
 
-                // Display the data in an HTML table row
-                pw.println("<tr><td>" + id + "</td><td>" + title + "</td><td>" + qty + "</td><td>" + price + "</td><td>" + author + "</td></tr>");
+                pw.println("<tr>");
+                pw.println("<td>" + id + "</td>");
+                pw.println("<td>" + title + "</td>");
+                pw.println("<td>" + qty + "</td>");
+                pw.println("<td>" + price + "</td>");
+                pw.println("<td>" + author + "</td>");
+                pw.println("</tr>");
             }
 
-            // Close the ResultSet, Statement, and Connection objects
             rs.close();
             stmt.close();
             con.close();
 
-        } catch (ClassNotFoundException e) {
-            pw.print("<p>Error: MySQL Driver not found. " + e.getMessage() + "</p>");
-        } catch (SQLException e) {
-            pw.print("<p>Error: Database connection or SQL error. " + e.getMessage() + "</p>");
         } catch (Exception e) {
-            pw.print("<p>General Error: " + e.getMessage() + "</p>");
+            pw.println("<p style='color:red;'>Error: " + e.getMessage() + "</p>");
         }
 
-        // Close the HTML tags and the response stream
         pw.println("</table>");
         pw.println("</body></html>");
-        pw.close();  // Close the PrintWriter stream
+    }
+
+    protected void doPost(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+
+        String action = req.getParameter("action");
+        String idStr = req.getParameter("id");
+
+        try {
+            int id = Integer.parseInt(idStr);
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/sanjivani", "root", "");
+
+            if ("Insert".equals(action)) {
+                String title = req.getParameter("title");
+                int qty = Integer.parseInt(req.getParameter("qty"));
+                double price = Double.parseDouble(req.getParameter("price"));
+                String author = req.getParameter("author");
+
+                PreparedStatement ps = con.prepareStatement("INSERT INTO ebookshop (id, title, qty, price, author_name) VALUES (?, ?, ?, ?, ?)");
+                ps.setInt(1, id);
+                ps.setString(2, title);
+                ps.setInt(3, qty);
+                ps.setDouble(4, price);
+                ps.setString(5, author);
+                ps.executeUpdate();
+                ps.close();
+
+            } else if ("Update".equals(action)) {
+                String title = req.getParameter("title");
+                int qty = Integer.parseInt(req.getParameter("qty"));
+                double price = Double.parseDouble(req.getParameter("price"));
+                String author = req.getParameter("author");
+
+                PreparedStatement ps = con.prepareStatement("UPDATE ebookshop SET title=?, qty=?, price=?, author_name=? WHERE id=?");
+                ps.setString(1, title);
+                ps.setInt(2, qty);
+                ps.setDouble(3, price);
+                ps.setString(4, author);
+                ps.setInt(5, id);
+                ps.executeUpdate();
+                ps.close();
+
+            } else if ("Delete".equals(action)) {
+                PreparedStatement ps = con.prepareStatement("DELETE FROM ebookshop WHERE id=?");
+                ps.setInt(1, id);
+                ps.executeUpdate();
+                ps.close();
+            }
+
+            con.close();
+
+        } catch (Exception e) {
+            res.getWriter().println("<p style='color:red;'>Error: " + e.getMessage() + "</p>");
+        }
+
+        // Refresh the page after action
+        res.sendRedirect("DemoServlet");
     }
 }
